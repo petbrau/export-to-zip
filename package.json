@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "rimraf dist && parcel build src/background.js --no-source-maps --dist-dir dist",
-    "postbuild": "copyfiles -u 1 manifest.json dist && copyfiles -u 1 _locales/** dist/_locales",
+    "postbuild": "copyfiles manifest.json dist && copyfiles -u 1 \"_locales/**\" dist/_locales",
     "zip": "rimraf export-to-zip.zip && cd dist && bestzip ../export-to-zip.zip *"
   },
   "repository": {
