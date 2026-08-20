@@ -4,7 +4,8 @@
   "description": "Export your mails and folders to a zip file!",
   "main": "index.js",
   "scripts": {
-    "build": "rimraf dist && parcel build src/background.js --no-source-maps",
+    "build": "rimraf dist && parcel build src/background.js --no-source-maps --dist-dir dist",
+    "postbuild": "copyfiles -u 1 manifest.json dist && copyfiles -u 1 _locales/** dist/_locales",
     "zip": "rimraf export-to-zip.zip && cd dist && bestzip ../export-to-zip.zip *"
   },
   "repository": {
@@ -39,8 +40,8 @@
   },
   "devDependencies": {
     "bestzip": "^3.0.1",
-    "parcel-bundler": "^1.12.5",
-    "parcel-plugin-static-files-copy": "^2.6.0",
+    "parcel": "^2.16.4",
+    "copyfiles": "^2.4.1",
     "rimraf": "^6.1.3"
   }
 }
