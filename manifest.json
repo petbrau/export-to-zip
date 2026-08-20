@@ -12,7 +12,7 @@
 		}
 	},
 	"background": {
-		"scripts": ["index.js"]
+		"scripts": ["jszip.min.js", "index.js"]
 	},
 	"permissions": ["messagesRead", "accountsFolders", "accountsRead", "downloads", "menus"],
 	"browser_action": {
