@@ -1,78 +1,68 @@
-const JSZip = require('jszip')
+import JSZip from 'jszip';
 
-let zip = null
-
-const downloadMailAndZip = async (msg, initialFolder) => {
-	const mail = messenger.messages.getRaw(msg.id)
-	const folder = `${msg.folder.path}/`.replace(initialFolder, '');
-	zip.file(`${folder}${msg.id}_${msg.subject.replace(/\//g, '_')}.eml`, (await mail).toString());
+async function downloadMailAndZip(msg, initialFolder, zip) {
+  const mailRaw = await messenger.messages.getRaw(msg.id);
+  const folder = `${msg.folder.path}/`.replace(initialFolder, '');
+  const safeSubject = (msg.subject || '').replace(/\//g, '_');
+  zip.file(`${folder}${msg.id}_${safeSubject}.eml`, mailRaw.toString());
 }
 
-const scanFolder = async folder => {
-	const mailListGenerator = listMessages(folder)
-	const initialFolder = folder.path + "/"
+async function scanFolder(folder) {
+  const zip = new JSZip();
+  const mailListGenerator = listMessages(folder);
+  const initialFolder = folder.path + '/';
 
-	const pendingPromises = []
+  const pending = [];
+  for await (const msg of mailListGenerator) {
+    pending.push(downloadMailAndZip(msg, initialFolder, zip));
+  }
+  await Promise.all(pending);
 
-	for await (let msg of mailListGenerator)
-		pendingPromises.push(downloadMailAndZip(msg, initialFolder))
-
-	await Promise.all(pendingPromises)
-
-	const zipFile = await zip.generateAsync({ type: 'blob' })
-
-	let url = URL.createObjectURL(zipFile)
-	messenger.downloads.download({filename: `${folder.name}.zip`, saveAs: true, url}, async id => {
-		zip = null
-	});
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(zipBlob);
+  await messenger.downloads.download({ filename: `${folder.name}.zip`, saveAs: true, url });
+  URL.revokeObjectURL(url);
 }
 
-const exportMessages = async messages => {
-	const pendingPromises = []
+async function exportMessages(messages) {
+  const zip = new JSZip();
+  const pending = messages.map(msg => downloadMailAndZip(msg, '/', zip));
+  await Promise.all(pending);
 
-	for (let msg of messages)
-		pendingPromises.push(downloadMailAndZip(msg, '/'))
-
-	await Promise.all(pendingPromises)
-
-	const zipFile = await zip.generateAsync({ type: 'blob' })
-
-	let url = URL.createObjectURL(zipFile)
-	messenger.downloads.download({filename: `mails.zip`, saveAs: true, url}, id => {
-		zip = null
-	});
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(zipBlob);
+  await messenger.downloads.download({ filename: 'mails.zip', saveAs: true, url });
+  URL.revokeObjectURL(url);
 }
 
-const handleClick = clickData => {
-	zip = JSZip()
-	if ('selectedMessages' in clickData) {
-		exportMessages(clickData.selectedMessages.messages)
-	} else if ('selectedFolder' in clickData) {
-		scanFolder(clickData.selectedFolder)
-	}
+function handleClick(clickData) {
+  if ('selectedMessages' in clickData) {
+    exportMessages(clickData.selectedMessages.messages).catch(console.error);
+  } else if ('selectedFolder' in clickData) {
+    scanFolder(clickData.selectedFolder).catch(console.error);
+  }
 }
 
 async function* listMessages(folder) {
-	let page = await messenger.messages.list(folder);
-	for (let message of page.messages) {
-		yield message;
-	}
+  let page = await messenger.messages.list(folder);
+  for (const message of page.messages) yield message;
 
-	while (page.id) {
-		page = await messenger.messages.continueList(page.id);
-		for (let message of page.messages) {
-			yield message;
-		}
-	}
+  while (page.id) {
+    page = await messenger.messages.continueList(page.id);
+    for (const message of page.messages) yield message;
+  }
 
-	for (subFolder of folder.subFolders) {
-		yield* listMessages(subFolder)
-	}
+  for (const subFolder of folder.subFolders || []) {
+    yield* listMessages(subFolder);
+  }
 }
 
-
-messenger.menus.create({
-	title: messenger.i18n.getMessage("menuTitle"),
-	contexts: ["message_list", "folder_pane"],
-	onclick: handleClick
-})
+try {
+  messenger.menus.create({
+    title: messenger.i18n.getMessage('menuTitle'),
+    contexts: ['message_list', 'folder_pane'],
+    onclick: handleClick
+  });
+} catch (e) {
+  console.warn('menus.create failed (might already exist):', e);
+}
