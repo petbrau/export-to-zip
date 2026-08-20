@@ -4,7 +4,7 @@
   "description": "Export your mails and folders to a zip file!",
   "main": "index.js",
   "scripts": {
-    "build": "rimraf dist && parcel build src/background.js --no-source-maps --dist-dir dist --no-content-hash",
+    "build": "rimraf dist && parcel build src/index.js --no-source-maps --dist-dir dist --no-content-hash",
     "postbuild": "mkdir -p dist/_locales && cpy \"manifest.json\" dist && cpy \"_locales/**\" dist/_locales --parents",
     "zip": "rimraf export-to-zip.zip && cd dist && bestzip ../export-to-zip.zip *"
   },
@@ -27,6 +27,9 @@
   "browserslist": [
     "firefox esr"
   ],
+  "alias": {
+    "jszip": "./node_modules/jszip/dist/jszip.esm.js"
+  },
   "staticFiles": {
     "staticPath": [
       {
