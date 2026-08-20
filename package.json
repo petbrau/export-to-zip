@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "rimraf dist && parcel build src/background.js --no-source-maps --dist-dir dist",
-    "postbuild": "copyfiles manifest.json dist && copyfiles -u 1 \"_locales/**\" dist/_locales",
+    "postbuild": "mkdir -p dist/_locales && cpy \"manifest.json\" dist && cpy \"_locales/**\" dist/_locales --parents",
     "zip": "rimraf export-to-zip.zip && cd dist && bestzip ../export-to-zip.zip *"
   },
   "repository": {
@@ -41,7 +41,7 @@
   "devDependencies": {
     "bestzip": "^3.0.1",
     "parcel": "^2.16.4",
-    "copyfiles": "^2.4.1",
+    "cpy-cli": "^3.2.0",
     "rimraf": "^6.1.3"
   }
 }
