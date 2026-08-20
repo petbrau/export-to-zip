@@ -1,4 +1,10 @@
-import JSZip from 'jszip/dist/jszip.esm.js';
+function getJSZip() {
+  // Prefer UMD global (when jszip.min.js is loaded via manifest before index.js)
+  if (typeof globalThis !== 'undefined' && globalThis.JSZip) return globalThis.JSZip;
+  // If not present, log a helpful error. We avoid importing/require at runtime because Thunderbird doesn't provide require().
+  console.error('export-to-zip: JSZip not found. Make sure jszip.min.js is loaded before index.js (manifest background.scripts) or rebuild to bundle JSZip.');
+  return null;
+}
 
 async function downloadMailAndZip(msg, initialFolder, zip) {
   const mailRaw = await messenger.messages.getRaw(msg.id);
@@ -8,7 +14,9 @@ async function downloadMailAndZip(msg, initialFolder, zip) {
 }
 
 async function scanFolder(folder) {
-  const zip = new JSZip();
+  const JSZipImpl = getJSZip();
+  if (!JSZipImpl) return;
+  const zip = new JSZipImpl();
   const mailListGenerator = listMessages(folder);
   const initialFolder = folder.path + '/';
 
@@ -25,7 +33,9 @@ async function scanFolder(folder) {
 }
 
 async function exportMessages(messages) {
-  const zip = new JSZip();
+  const JSZipImpl = getJSZip();
+  if (!JSZipImpl) return;
+  const zip = new JSZipImpl();
   const pending = messages.map(msg => downloadMailAndZip(msg, '/', zip));
   await Promise.all(pending);
 
