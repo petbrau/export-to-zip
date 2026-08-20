@@ -1,4 +1,4 @@
-import JSZip from 'jszip';
+import JSZip from 'jszip/dist/jszip.esm.min.js';
 
 async function downloadMailAndZip(msg, initialFolder, zip) {
   const mailRaw = await messenger.messages.getRaw(msg.id);
