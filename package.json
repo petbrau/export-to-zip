@@ -4,7 +4,7 @@
   "description": "Export your mails and folders to a zip file!",
   "main": "index.js",
   "scripts": {
-    "build": "rimraf dist && parcel build src/background.js --no-source-maps --dist-dir dist --out-file index.js",
+    "build": "rimraf dist && parcel build src/background.js --no-source-maps --dist-dir dist --no-content-hash",
     "postbuild": "mkdir -p dist/_locales && cpy \"manifest.json\" dist && cpy \"_locales/**\" dist/_locales --parents",
     "zip": "rimraf export-to-zip.zip && cd dist && bestzip ../export-to-zip.zip *"
   },
