@@ -18,7 +18,7 @@
   },
   "homepage": "https://github.com/BubuAnabelas/export-to-zip#readme",
   "dependencies": {
-    "jszip": "^3.5.0"
+    "jszip": "^3.10.1"
   },
   "engines": {
     "thunderbird": ">=78.4.0"
@@ -38,9 +38,9 @@
     ]
   },
   "devDependencies": {
-    "bestzip": "^2.1.7",
-    "parcel-bundler": "^1.12.4",
-    "parcel-plugin-static-files-copy": "^2.5.0",
-    "rimraf": "^3.0.2"
+    "bestzip": "^3.0.1",
+    "parcel-bundler": "^1.12.5",
+    "parcel-plugin-static-files-copy": "^2.6.0",
+    "rimraf": "^6.1.3"
   }
 }
