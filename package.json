@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "rimraf dist && parcel build src/index.js --no-source-maps --dist-dir dist --no-content-hash",
-    "postbuild": "mkdir -p dist/_locales && cpy \"manifest.json\" dist && cpy \"_locales/**\" dist/_locales --parents",
+    "postbuild": "mkdir -p dist/_locales && cpy \"manifest.json\" dist && cpy \"_locales/**\" dist/_locales --parents && cp node_modules/jszip/dist/jszip.min.js dist/jszip.min.js && cp index.js dist/index.js || true",
     "zip": "rimraf export-to-zip.zip && cd dist && bestzip ../export-to-zip.zip *"
   },
   "repository": {
