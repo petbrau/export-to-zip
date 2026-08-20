@@ -8,9 +8,18 @@ function getJSZip() {
 
 async function downloadMailAndZip(msg, initialFolder, zip) {
   const mailRaw = await messenger.messages.getRaw(msg.id);
-  const folder = `${msg.folder.path}/`.replace(initialFolder, '');
+
+  // Compute a relative folder path inside the zip.
+  // Only strip the provided initialFolder if it's a true prefix of the folder path.
+  let folderPath = `${msg.folder.path}/`;
+  if (initialFolder && folderPath.startsWith(initialFolder)) {
+    folderPath = folderPath.slice(initialFolder.length);
+  }
+  // Remove any leading slashes to avoid absolute paths inside the zip
+  folderPath = folderPath.replace(/^\/+/, '');
+
   const safeSubject = (msg.subject || '').replace(/\//g, '_');
-  zip.file(`${folder}${msg.id}_${safeSubject}.eml`, mailRaw.toString());
+  zip.file(`${folderPath}${msg.id}_${safeSubject}.eml`, mailRaw.toString());
 }
 
 async function scanFolder(folder) {
@@ -36,7 +45,9 @@ async function exportMessages(messages) {
   const JSZipImpl = getJSZip();
   if (!JSZipImpl) return;
   const zip = new JSZipImpl();
-  const pending = messages.map(msg => downloadMailAndZip(msg, '/', zip));
+  // Do not pass '/' as initialFolder — that would remove the first slash found inside folder paths
+  // which can corrupt folder names (e.g. "INBOX/Sub" => "INBOXSub"). Use empty string to keep full folder structure.
+  const pending = messages.map(msg => downloadMailAndZip(msg, '', zip));
   await Promise.all(pending);
 
   const zipBlob = await zip.generateAsync({ type: 'blob' });
