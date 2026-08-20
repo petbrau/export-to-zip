@@ -40,6 +40,10 @@ function handleClick(clickData) {
     exportMessages(clickData.selectedMessages.messages).catch(console.error);
   } else if ('selectedFolder' in clickData) {
     scanFolder(clickData.selectedFolder).catch(console.error);
+  } else if ('folder' in clickData) {
+    scanFolder(clickData.folder).catch(console.error);
+  } else {
+    console.warn('export-to-zip: handleClick called with unexpected data', clickData);
   }
 }
 
@@ -57,12 +61,60 @@ async function* listMessages(folder) {
   }
 }
 
-try {
-  messenger.menus.create({
-    title: messenger.i18n.getMessage('menuTitle'),
-    contexts: ['message_list', 'folder_pane'],
-    onclick: handleClick
-  });
-} catch (e) {
-  console.warn('menus.create failed (might already exist):', e);
+function createContextMenus() {
+  try {
+    messenger.menus.create({
+      id: 'export-to-zip-messages',
+      title: messenger.i18n.getMessage('menuTitle'),
+      contexts: ['message_list']
+    });
+    messenger.menus.create({
+      id: 'export-to-zip-folder',
+      title: messenger.i18n.getMessage('menuTitle'),
+      contexts: ['folder_pane']
+    });
+    console.log('export-to-zip: created message and folder context menus');
+  } catch (e) {
+    console.error('export-to-zip: createContextMenus failed:', e);
+  }
 }
+
+try {
+  createContextMenus();
+} catch (e) {
+  console.warn('export-to-zip: initial createContextMenus failed', e);
+}
+
+if (messenger.runtime && messenger.runtime.onInstalled) {
+  messenger.runtime.onInstalled.addListener(() => {
+    console.log('export-to-zip: runtime.onInstalled — (re)creating menus');
+    createContextMenus();
+  });
+}
+if (messenger.runtime && messenger.runtime.onStartup) {
+  messenger.runtime.onStartup.addListener(() => {
+    console.log('export-to-zip: runtime.onStartup — (re)creating menus');
+    createContextMenus();
+  });
+}
+
+messenger.menus.onClicked.addListener((info, tab) => {
+  console.log('export-to-zip: menus.onClicked info=', info);
+  if (info.menuItemId === 'export-to-zip-messages') {
+    if (info.selectedMessages && info.selectedMessages.messages) {
+      handleClick({ selectedMessages: info.selectedMessages });
+    } else {
+      handleClick({ selectedMessages: { messages: [] } });
+    }
+  } else if (info.menuItemId === 'export-to-zip-folder') {
+    if (info.selectedFolder) {
+      handleClick({ selectedFolder: info.selectedFolder });
+    } else if (info.folder) {
+      handleClick({ selectedFolder: info.folder });
+    } else {
+      console.warn('export-to-zip: folder menu clicked but no folder info in event', info);
+    }
+  } else {
+    console.warn('export-to-zip: unknown menuItemId', info.menuItemId);
+  }
+});
