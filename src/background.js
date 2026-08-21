@@ -18,7 +18,8 @@ async function downloadMailAndZip(msg, initialFolder, zip) {
   // Remove any leading slashes to avoid absolute paths inside the zip
   folderPath = folderPath.replace(/^\/+/, '');
 
-  const safeSubject = (msg.subject || '').replace(/\//g, '_');
+  // FIX: Replace all forbidden filesystem/ZIP characters, not just '/'
+  const safeSubject = (msg.subject || '').replace(/[/\\?%*:|"<>]/g, '_');
   zip.file(`${folderPath}${msg.id}_${safeSubject}.eml`, mailRaw.toString());
 }
 
@@ -29,16 +30,23 @@ async function scanFolder(folder) {
   const mailListGenerator = listMessages(folder);
   const initialFolder = folder.path + '/';
 
-  const pending = [];
+  // FIX: Process sequentially to prevent memory overflow on large folders
   for await (const msg of mailListGenerator) {
-    pending.push(downloadMailAndZip(msg, initialFolder, zip));
+    await downloadMailAndZip(msg, initialFolder, zip);
   }
-  await Promise.all(pending);
 
   const zipBlob = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(zipBlob);
-  await messenger.downloads.download({ filename: `${folder.name}.zip`, saveAs: true, url });
-  URL.revokeObjectURL(url);
+
+  const downloadId = await messenger.downloads.download({ filename: `${folder.name}.zip`, saveAs: true, url });
+
+  // FIX: Wait for download completion before revoking the object URL
+  messenger.downloads.onChanged.addListener(function listen(delta) {
+    if (delta.id === downloadId && delta.state && (delta.state.current === 'complete' || delta.state.current === 'interrupted')) {
+      messenger.downloads.onChanged.removeListener(listen);
+      URL.revokeObjectURL(url);
+    }
+  });
 }
 
 async function exportMessages(messages) {
@@ -47,13 +55,24 @@ async function exportMessages(messages) {
   const zip = new JSZipImpl();
   // Do not pass '/' as initialFolder — that would remove the first slash found inside folder paths
   // which can corrupt folder names (e.g. "INBOX/Sub" => "INBOXSub"). Use empty string to keep full folder structure.
-  const pending = messages.map(msg => downloadMailAndZip(msg, '', zip));
-  await Promise.all(pending);
+
+  // FIX: Process sequentially to avoid memory spikes
+  for (const msg of messages) {
+    await downloadMailAndZip(msg, '', zip);
+  }
 
   const zipBlob = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(zipBlob);
-  await messenger.downloads.download({ filename: 'mails.zip', saveAs: true, url });
-  URL.revokeObjectURL(url);
+
+  const downloadId = await messenger.downloads.download({ filename: 'mails.zip', saveAs: true, url });
+
+  // FIX: Wait for download completion before revoking the object URL
+  messenger.downloads.onChanged.addListener(function listen(delta) {
+    if (delta.id === downloadId && delta.state && (delta.state.current === 'complete' || delta.state.current === 'interrupted')) {
+      messenger.downloads.onChanged.removeListener(listen);
+      URL.revokeObjectURL(url);
+    }
+  });
 }
 
 function handleClick(clickData) {
@@ -84,26 +103,23 @@ async function* listMessages(folder) {
 
 function createContextMenus() {
   try {
-    messenger.menus.create({
-      id: 'export-to-zip-messages',
-      title: messenger.i18n.getMessage('menuTitle'),
-      contexts: ['message_list']
+    // Remove existing menus prior to creation to prevent ID conflicts
+    messenger.menus.removeAll().then(() => {
+      messenger.menus.create({
+        id: 'export-to-zip-messages',
+        title: messenger.i18n.getMessage('menuTitle'),
+                             contexts: ['message_list']
+      });
+      messenger.menus.create({
+        id: 'export-to-zip-folder',
+        title: messenger.i18n.getMessage('menuTitle'),
+                             contexts: ['folder_pane']
+      });
+      console.log('export-to-zip: created message and folder context menus');
     });
-    messenger.menus.create({
-      id: 'export-to-zip-folder',
-      title: messenger.i18n.getMessage('menuTitle'),
-      contexts: ['folder_pane']
-    });
-    console.log('export-to-zip: created message and folder context menus');
   } catch (e) {
     console.error('export-to-zip: createContextMenus failed:', e);
   }
-}
-
-try {
-  createContextMenus();
-} catch (e) {
-  console.warn('export-to-zip: initial createContextMenus failed', e);
 }
 
 if (messenger.runtime && messenger.runtime.onInstalled) {
